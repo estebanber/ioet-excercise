@@ -1,18 +1,18 @@
-# IOET Excersice: Payday
+# IOET Excercise: Payday
 
 ## Run aplication
-´´´bash
+```bash
 python payday/payday.py [file]
-´´´
+```
 Example:
-´´´bash
+```bash
 python payday/payday.py work.txt
-´´´
+```
 
 ## Run tests
-´´´bash
+```bash
 python -m pytest -v
-´´´
+```
 
 ## Architecture
 The Company class is main structure in the solution. An instance of this class
