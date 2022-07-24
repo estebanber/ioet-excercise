@@ -15,6 +15,7 @@ class Employee:
 
 @dataclass
 class Period:
+    """Data class that contains information from the payment rate in one period and one day"""
     day: int
     time_init: time
     time_finish: time
@@ -23,6 +24,7 @@ class Period:
 
 @dataclass
 class WorkedPeriod:
+    """Data class that contains information of a specific worked period"""
     init_hour: time
     finish_time: time
     day: int
@@ -30,6 +32,7 @@ class WorkedPeriod:
 
 @dataclass
 class WorkedWeek:
+    """Data class that contains information of whole worked week of an employee"""
     # year: int
     # calendar_week: int
     employee: Employee
@@ -39,20 +42,23 @@ class WorkedWeek:
         self.work.append(period)
 
 
-class OutputFormater(ABC):
+class Outputformatter(ABC):
+    """Abstract class that define the interface to print output data"""
     @staticmethod
     @abstractmethod
     def print_payment(self, payment_list: Employee):
         pass
 
 
-class TextOutputFormater(OutputFormater):
+class TextOutputformatter(Outputformatter):
+    """Implementation of Outputformatter that prints data as text in the system console"""
     @staticmethod
     def print_payment(payment: Employee):
         print(f'The amount to pay {payment.name} is {payment.payment}')
 
 
 class InputProcessor(ABC):
+    """Abstract class that define the interface to get input data"""
     @abstractmethod
     def getData(self) -> list[WorkedWeek]:
         """Get the parsed list of the worked hours in a week"""
@@ -60,6 +66,8 @@ class InputProcessor(ABC):
 
 
 class FileInputReader(InputProcessor):
+    """Implementation of InputProcessor that gets data from text files"""
+
     def __init__(self, file_name):
         self.file_name = file_name
 
@@ -80,25 +88,48 @@ class FileInputReader(InputProcessor):
         elif day_code == 'SU':
             return calendar.SUNDAY
         else:
-            raise('Bad day code')
+            print('Wrong day code')
+            sys.exit(3)
 
     def _process_work(self, input_string: str) -> WorkedPeriod:
+        """Parse data from each line to get the worked periods from an employee"""
+
         day_code = input_string[0:2]
         day = FileInputReader.parse_day(day_code)
         period = input_string[2:]
         parsed_period = re.split(':|-', period)
+        try:
+            return WorkedPeriod(
+                time(int(parsed_period[0]), int(parsed_period[1])),
+                time(int(parsed_period[2]), int(parsed_period[3])),
+                day
+            )
+        except Exception:
+            print('Parsing problem in input file, malformed line')
+            sys.exit(3)
 
-        return WorkedPeriod(
-            time(int(parsed_period[0]), int(parsed_period[1])),
-            time(int(parsed_period[2]), int(parsed_period[3])),
-            day
-        )
+
+    @staticmethod
+    def _check_line_format(line: str) -> bool:
+        if '=' not in line:
+            return True
+        if ':' not in line:
+            return True
+        if '-' not in line:
+            return True
+        return False
 
     def getData(self) -> list[WorkedWeek]:
+        """Obtain and parse worked hours of all employees in the text file"""
+
         with open(self.file_name, 'r') as f:
             res = []
             for line in f.readlines():
-                # print(line)
+                if not line.strip():  # Ignore blank lines
+                    continue
+                if FileInputReader._check_line_format(line):  # Check the line format
+                    print('Wrong input file format')
+                    sys.exit(2)
                 employee_name = line.split('=')[0]
                 work = line.split('=')[1]
                 week = []
@@ -110,26 +141,31 @@ class FileInputReader(InputProcessor):
 
 
 class Company:
+    """Company class that calculates the employee's payments using multiple rates and hours worked"""
     name: str
     rate_list: dict = {}
 
-    def __init__(self, name: str, input_processor: InputProcessor, output_formater: OutputFormater):
+    def __init__(self, name: str, input_processor: InputProcessor, output_formatter: Outputformatter):
         self.name = name
         self.input_processor = input_processor
-        self.output_formater = output_formater
+        self.output_formatter = output_formatter
 
     def add_period(self, period: Period):
+        """Insert a new period rate to the company"""
         if self.rate_list.get(period.day):
             self.rate_list[period.day].append(period)
         else:
             self.rate_list[period.day] = [period]
 
     def set_rates(self, rates: list[Period]):
+        """Add mulltiple pay rates in the company"""
         for r in rates:
             self.add_period(r)
 
     @classmethod
     def _get_intersection(cls, interval_a: tuple[time], interval_b: tuple[time]):
+        """Get the intersection between to time intervals
+           used to calculate the worked hours of each employee"""
         intersection_end = None
         if interval_b[1] != time(0):
             if interval_a[0] > interval_b[1]:
@@ -153,6 +189,7 @@ class Company:
         return intersection.total_seconds()/3600
 
     def payment_calculator(self, work_week: WorkedWeek) -> Employee:
+        """Calculate the total amount to pay to an employee in a week"""
         pay = 0
         for wp in work_week.work:
             for p in self.rate_list[wp.day]:
@@ -170,12 +207,14 @@ class Company:
         return res
 
     def print_payments(self):
+        """Print payments using the chosen formatter"""
         payments = self.get_payments()
         for p in payments:
-            self.output_formater.print_payment(p)
+            self.output_formatter.print_payment(p)
 
 
 def get_rates(rates_file: str) -> list[Period]:
+    """Function to parse the complete rate list of a company from a text file"""
     res = []
     with open(rates_file, 'r') as f:
         for line in f.readlines():
@@ -198,14 +237,15 @@ if __name__ == '__main__':
     if len(sys.argv) != 2:
         print('You need to specify one input file')
         sys.exit(1)
+
     # Define output format
-    output_formater = TextOutputFormater()
+    output_formatter = TextOutputformatter()
 
     # Define the source and how process the input data
     input_processor = FileInputReader(sys.argv[1])
 
     # Create the company
-    c = Company('ACME', input_processor, output_formater)
+    c = Company('ACME', input_processor, output_formatter)
 
     # Set payment rates for the company
     rates = get_rates('rates.txt')
