@@ -3,7 +3,6 @@ from payday.payday import Period, Company, WorkedWeek, WorkedPeriod, Employee, F
 from datetime import time
 import calendar
 from decimal import Decimal
-from io import BytesIO
 
 
 def test_get_intersection():

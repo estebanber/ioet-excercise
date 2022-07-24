@@ -256,8 +256,7 @@ if __name__ == '__main__':
     c = Company('ACME', input_processor, output_formatter)
 
     # Set payment rates for the company
-    script_path = os.path.dirname( __file__ ) 
-    print(script_path)
+    script_path = os.path.dirname(__file__)
     rates = get_rates(script_path+'/rates.txt')
     c.set_rates(rates)
 
