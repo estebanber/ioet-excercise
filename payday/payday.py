@@ -5,6 +5,7 @@ from decimal import Decimal
 import calendar
 import re
 import sys
+import os
 
 
 @dataclass
@@ -108,7 +109,6 @@ class FileInputReader(InputProcessor):
             print('Parsing problem in input file, malformed line')
             sys.exit(3)
 
-
     @staticmethod
     def _check_line_format(line: str) -> bool:
         if '=' not in line:
@@ -145,7 +145,12 @@ class Company:
     name: str
     rate_list: dict = {}
 
-    def __init__(self, name: str, input_processor: InputProcessor, output_formatter: Outputformatter):
+    def __init__(
+        self,
+        name: str,
+        input_processor: InputProcessor = None,
+        output_formatter: Outputformatter = None
+    ):
         self.name = name
         self.input_processor = input_processor
         self.output_formatter = output_formatter
@@ -162,18 +167,18 @@ class Company:
         for r in rates:
             self.add_period(r)
 
-    @classmethod
-    def _get_intersection(cls, interval_a: tuple[time], interval_b: tuple[time]):
+    @staticmethod
+    def _get_intersection(interval_a: tuple[time], interval_b: tuple[time]):
         """Get the intersection between to time intervals
            used to calculate the worked hours of each employee"""
         intersection_end = None
-        if interval_b[1] != time(0):
+        if interval_b[1] != time(0):  # Fix for 0 hour interval end
             if interval_a[0] > interval_b[1]:
                 return 0
         else:
             intersection_end = interval_a[1]
 
-        if interval_a[1] != time(0):
+        if interval_a[1] != time(0):  # Fix for 0 hour interval end
             if interval_b[0] > interval_a[1]:
                 return 0
         else:
@@ -182,9 +187,12 @@ class Company:
         intersection_start = max(interval_a[0], interval_b[0])
         if not intersection_end:
             intersection_end = min(interval_a[1], interval_b[1])
-        dummy_date = date(1, 1, 1)
-        datetime_start = datetime.combine(dummy_date, intersection_start)
-        datetime_end = datetime.combine(dummy_date, intersection_end)
+        dummy_date1 = dummy_date2 = date(1, 1, 1)
+        if intersection_end == time(0):  # Fix for both 0 hour interval end
+            dummy_date2 = date(1, 1, 2)
+
+        datetime_start = datetime.combine(dummy_date1, intersection_start)
+        datetime_end = datetime.combine(dummy_date2, intersection_end)
         intersection = datetime_end - datetime_start
         return intersection.total_seconds()/3600
 
@@ -248,7 +256,9 @@ if __name__ == '__main__':
     c = Company('ACME', input_processor, output_formatter)
 
     # Set payment rates for the company
-    rates = get_rates('rates.txt')
+    script_path = os.path.dirname( __file__ ) 
+    print(script_path)
+    rates = get_rates(script_path+'/rates.txt')
     c.set_rates(rates)
 
     # Calculate and print the payment amount
